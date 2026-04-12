@@ -32,12 +32,17 @@ dependencies:
   # Détecter la position de l'utilisateur automatiquement
   geolocator: ^14.0.2
 
+  # Ouvrir des liens dans le navigateur
+  url_launcher: ^6.3.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
 
   flutter_lints: ^6.0.0
+
 sqflite_common_ffi_web: ^0.4.5+2
 sqflite_common_ffi: ^2.3.3
+
 flutter:
   uses-material-design: true

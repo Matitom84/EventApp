@@ -5,6 +5,7 @@ import '../models/event.dart';
 import 'ticketmaster_service.dart';
 import 'eventbrite_service.dart';
 import 'database_service.dart';
+import 'supabase_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 
 
@@ -28,17 +29,30 @@ class EventService {
       ]);
 
       // On combine les deux listes en une seule
-      final allEvents = [...results[0], ...results[1]];
+      List<Event> allEvents = [...results[0], ...results[1]];
+
+      // On récupère aussi les événements créés par les organisateurs
+      // dans notre base Supabase et on les ajoute à la liste
+      List<Event> supabaseEvents = await SupabaseService.getCreatedEvents();
+      allEvents = [...allEvents, ...supabaseEvents];
+
+      // On supprime les doublons par titre
+      final seen = <String>{};
+      final uniqueEvents = allEvents.where((e) {
+        // Si le titre a déjà été vu on l'ignore
+        // sinon on l'ajoute à la liste des titres vus
+        return seen.add(e.title);
+      }).toList();
 
       // On trie par date — le plus proche en premier
-      allEvents.sort((a, b) => a.date.compareTo(b.date));
+      uniqueEvents.sort((a, b) => a.date.compareTo(b.date));
 
       // On sauvegarde en local pour le mode hors connexion
-      for (final event in allEvents) {
+      for (final event in uniqueEvents) {
         await DatabaseService.saveEvent(event);
       }
 
-      return allEvents;
+      return uniqueEvents;
 
     } else {
       print('Pas internet — chargement depuis la base locale');

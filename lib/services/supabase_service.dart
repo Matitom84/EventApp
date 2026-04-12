@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user.dart';
 import 'database_service.dart';
+import '../models/event.dart';
 
 class SupabaseService {
 
@@ -194,5 +195,123 @@ class SupabaseService {
       );
     }
     return await DatabaseService.getUser();
+  }
+  // SAUVEGARDER UNE RÉSERVATION DANS SUPABASE
+// Appelée quand l'utilisateur confirme sa réservation
+  static Future<bool> saveReservation({
+    required String userPhone,
+    required String eventId,
+    required String eventTitle,
+    required int numberOfPlaces,
+  }) async {
+    try {
+      await _client.from('reservations').insert({
+        'user_phone': userPhone,
+        'event_id': eventId,
+        'event_title': eventTitle,
+        'number_of_places': numberOfPlaces,
+        'reserved_at': DateTime.now().toIso8601String(),
+      });
+      return true;
+    } catch (e) {
+      print('Erreur sauvegarde réservation: $e');
+      return false;
+    }
+  }
+
+
+// RÉCUPÉRER LES RÉSERVATIONS D'UN UTILISATEUR
+  static Future<List<Map<String, dynamic>>> getReservations({
+    required String userPhone,
+  }) async {
+    try {
+      final response = await _client
+          .from('reservations')
+          .select()
+          .eq('user_phone', userPhone)
+          .order('reserved_at', ascending: false);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      print('Erreur récupération réservations: $e');
+      return [];
+    }
+  }
+
+
+// COMPTER LES RÉSERVATIONS D'UN UTILISATEUR
+  static Future<int> countReservations({required String userPhone}) async {
+    try {
+      final response = await _client
+          .from('reservations')
+          .select()
+          .eq('user_phone', userPhone);
+      return (response as List).length;
+    } catch (e) {
+      return 0;
+    }
+  }
+  // CRÉER UN ÉVÉNEMENT DANS SUPABASE
+  static Future<bool> createEvent({
+    required String title,
+    required String description,
+    required String address,
+    required String date,
+    required double price,
+    required int maxPlaces,
+    required String organizerPhone,
+  }) async {
+    try {
+      // on insère l'événement dans la table events
+      await _client.from('events').insert({
+        'title': title,
+        'description': description,
+        'address': address,
+        'date': date,
+        'price': price,
+        'max_places': maxPlaces,
+        'organizer_phone': organizerPhone,
+      });
+      return true;
+    } catch (e) {
+      print('Erreur création événement: $e');
+      return false;
+    }
+  }
+  // RÉCUPÉRER LES ÉVÉNEMENTS CRÉÉS PAR LES ORGANISATEURS
+// on les convertit en objets Event pour les afficher comme les autres
+  static Future<List<Event>> getCreatedEvents() async {
+    try {
+      // on récupère tous les événements depuis la table supabase
+      final response = await _client
+          .from('events')
+          .select()
+          .order('date', ascending: true);
+
+      List<Event> events = [];
+
+      // on parcourt chaque ligne et on crée un objet Event
+      for (var row in response) {
+        Event event = Event(
+          id: 'sb_${row['id']}',
+          title: row['title'] ?? '',
+          description: row['description'] ?? '',
+          address: row['address'] ?? '',
+          imageUrl: '',
+          date: DateTime.parse(row['date']),
+          maxPlaces: row['max_places'] ?? 0,
+          organizer: row['organizer_phone'] ?? '',
+          source: 'supabase',
+          url: '',
+          price: (row['price'] ?? 0.0).toDouble(),
+        );
+        events.add(event);
+      }
+
+      return events;
+
+    } catch (e) {
+      print('Erreur récupération événements supabase: $e');
+      return [];
+    }
   }
 }
