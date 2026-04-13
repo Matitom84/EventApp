@@ -11,18 +11,17 @@ import '../models/event.dart';
 // à partir des données reçues de Ticketmaster
 
 
-// Cette classe gère TOUT ce qui concerne l'API Ticketmaster
+// Cette classe gère tout ce qui concerne l'API Ticketmaster
 // Elle envoie les requêtes et convertit les réponses en objets Event
 class TicketmasterService {
 
   // La clé API Ticketmaster — c'est comme un mot de passe
   // qui prouve à Ticketmaster que c'est bien notre app qui demande
-  // IMPORTANT : on mettra la vraie clé ici après — pour l'instant
-  // on la laisse en constante, on la sécurisera avec flutter_secure_storage
+  
   static const String _apiKey = 'Q9CJf5zyaUJjENwXJ67GwqeOZQgphTbA';
 
   // L'URL de base de l'API Ticketmaster
-  // Toutes nos requêtes commenceront par cette URL
+  // Toutes les requêtes commenceront par cette URL
   static const String _baseUrl = 'https://app.ticketmaster.com/discovery/v2';
 
 
@@ -51,7 +50,6 @@ class TicketmasterService {
       );
 
       // On envoie la requête GET à Ticketmaster
-      // C'est comme taper une URL dans un navigateur mais depuis le code
       // "await" signifie qu'on attend la réponse avant de continuer
       final response = await http.get(url);
 
@@ -91,7 +89,7 @@ class TicketmasterService {
   }
 
 
-  // CONVERTIR UN ÉVÉNEMENT JSON EN OBJET EVENT
+  
   // Cette méthode prend un dictionnaire JSON de Ticketmaster
   // et le transforme en notre objet Event
   // Elle est "privée" (le _ devant) car on l'utilise uniquement ici
