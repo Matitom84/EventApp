@@ -6,12 +6,9 @@ import '../event/event_detail_screen.dart';
 import '../profile/profile_screen.dart';
 import '../create_event/create_event_screen.dart';
 
-
-// StatefulWidget car la page a des données qui changent
-// ex: la liste d'événements, le chargement...
+// page d'accueil
 class HomeScreen extends StatefulWidget {
-  // On reçoit l'utilisateur connecté depuis la page de connexion
-  final AppUser user;
+  final AppUser user; // l'user connecte
   const HomeScreen({super.key, required this.user});
 
   @override
@@ -20,93 +17,69 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
 
-  // Liste vide au départ, elle sera remplie après le chargement
-  List<Event> _events = [];
-
-  // true = on attend la réponse de l'API, false = données reçues
-  bool _isLoading = false;
-
-  // Onglet actif : 0 = Accueil, 1 = Profil
-  int _currentIndex = 0;
-
-  // Controller = objet qui lit ce que l'utilisateur tape dans un champ
+  List<Event> _events = []; // liste des events
+  bool _isLoading = false; // spinner
+  int _currentIndex = 0; // onglet actif : 0 accueil / 1 profil
   final _searchController = TextEditingController();
 
-  // initState est appelé une seule fois quand la page s'ouvre
   @override
   void initState() {
     super.initState();
-    _loadEvents(); // On charge les événements dès l'ouverture
+    _loadEvents(); // on charge les events a l'ouverture
   }
 
-  // Appelle l'API et met à jour la liste d'événements
+  // charge les events depuis les API
   Future<void> _loadEvents() async {
-    // setState redessine la page avec les nouvelles valeurs
     setState(() => _isLoading = true);
 
-    // On récupère les événements depuis Ticketmaster et Eventbrite
-    // keyword = ce que l'utilisateur a tapé dans la recherche
+    // on recupere les events, keyword = ce que l'user a tape
     final events = await EventService.getEvents(
-      city: 'Paris', // Ville fixe pour simplifier
+      city: 'Paris',
       keyword: _searchController.text.trim(),
-      // trim() enlève les espaces avant et après le texte
     );
 
-    // On met à jour la liste et on arrête le chargement
     setState(() {
       _events = events;
       _isLoading = false;
     });
   }
 
-  // Libère la mémoire du controller quand la page est fermée
-  // Important pour éviter les fuites mémoire
   @override
   void dispose() {
-    _searchController.dispose();
+    _searchController.dispose(); // liberation memoire
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // Scaffold = structure de base d'une page Flutter
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
 
-      // Barre de navigation en bas avec 2 onglets
+      // barre de navigation en bas
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex, // Onglet actif
-        // Quand on tape un onglet, on met à jour _currentIndex
+        currentIndex: _currentIndex,
         onTap: (i) => setState(() => _currentIndex = i),
-        selectedItemColor: const Color(0xFF1A73E8), // Bleu si sélectionné
+        selectedItemColor: const Color(0xFF1A73E8),
         unselectedItemColor: Colors.grey,
         backgroundColor: Colors.white,
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_rounded),
-            label: 'Accueil',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_rounded),
-            label: 'Profil',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Accueil'),
+          BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'Profil'),
         ],
       ),
 
-      // IndexedStack affiche une page à la fois selon _currentIndex
-      // Les deux pages restent en mémoire pour ne pas recharger
+      // IndexedStack garde les 2 pages en memoire
+      // et affiche celle qui correspond a _currentIndex
       body: IndexedStack(
         index: _currentIndex,
         children: [
-          _buildHomePage(), // Page 0 = Accueil
-          ProfileScreen(user: widget.user), // Page 1 = Profil
+          _buildHomePage(),
+          ProfileScreen(user: widget.user),
         ],
       ),
 
-      // Bouton "Créer" visible uniquement pour les organisateurs
-      // et uniquement sur l'onglet Accueil
-      floatingActionButton: _currentIndex == 0 &&
-          widget.user.role == 'organizer'
+      // bouton creer visible uniquement pour les organisateurs
+      floatingActionButton: _currentIndex == 0 && widget.user.role == 'organizer'
           ? FloatingActionButton.extended(
         backgroundColor: const Color(0xFF1A73E8),
         foregroundColor: Colors.white,
@@ -115,99 +88,74 @@ class _HomeScreenState extends State<HomeScreen> {
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (_) => CreateEventScreen(user: widget.user),
-            ),
+            MaterialPageRoute(builder: (_) => CreateEventScreen(user: widget.user)),
           );
         },
       )
-          : null, // null = pas de bouton
+          : null,
     );
   }
 
-  // La page d'accueil est dans une méthode séparée
-  // pour garder le build() plus lisible
+  // la page d'accueil dans une methode separee pour garder le build lisible
   Widget _buildHomePage() {
-    // SafeArea évite que le contenu se cache derrière
-    // la barre de statut ou le bouton home du téléphone
     return SafeArea(
       child: Column(
         children: [
 
-          // ── HEADER ──
+          // header avec degrade bleu
           Container(
-            color: Colors.white,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF1A73E8), Color(0xFF4A90E2)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
 
-                // Prénom de l'utilisateur
-                // widget.user = l'utilisateur reçu en paramètre
-                // split(' ')[0] = prend le premier mot (le prénom)
+                // prenom de l'user
+                // split(' ')[0] = prend juste le prenom
                 Text(
                   'Bonjour ${widget.user.name.split(' ')[0]} 👋',
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
                 ),
-
-                // Rôle de l'utilisateur
                 Text(
-                  widget.user.role == 'organizer'
-                      ? 'Organisateur' // Si rôle = organisateur
-                      : 'Participant', // Sinon = participant
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  widget.user.role == 'organizer' ? 'Organisateur' : 'Participant',
+                  style: const TextStyle(fontSize: 12, color: Colors.white70),
                 ),
 
-                const SizedBox(height: 12), // Espace vertical
+                const SizedBox(height: 12),
 
-                // Barre de recherche
+                // barre de recherche
                 Row(
                   children: [
-                    // Champ de texte qui prend tout l'espace disponible
                     Expanded(
                       child: TextField(
                         controller: _searchController,
                         decoration: InputDecoration(
                           hintText: 'Rechercher un événement...',
-                          // Icône de loupe à gauche
                           prefixIcon: const Icon(Icons.search, color: Colors.grey),
-                          // Style du champ
                           filled: true,
                           fillColor: const Color(0xFFF8F9FA),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.grey.shade200),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.grey.shade200),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xFF1A73E8)),
-                          ),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
+                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF1A73E8))),
                         ),
-                        // Lance la recherche quand l'utilisateur appuie sur Entrée
+                        // recherche quand l'user appuie sur entree
                         onSubmitted: (_) => _loadEvents(),
                       ),
                     ),
-
                     const SizedBox(width: 8),
-
-                    // Bouton de recherche
                     ElevatedButton(
                       onPressed: _loadEvents,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF1A73E8),
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                       ),
                       child: const Text('Go'),
                     ),
@@ -217,50 +165,31 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
 
-          // ── LISTE DES ÉVÉNEMENTS ──
-          // Expanded = prend tout l'espace restant
+          // liste des events
           Expanded(
             child: _isLoading
-            // Si chargement en cours → spinner au centre
-                ? const Center(
-              child: CircularProgressIndicator(
-                color: Color(0xFF1A73E8),
-              ),
-            )
+                ? const Center(child: CircularProgressIndicator(color: Color(0xFF1A73E8)))
                 : _events.isEmpty
-            // Si pas d'événements → message
-                ? Center(
-              child: Text(
-                'Aucun événement trouvé',
-                style: TextStyle(color: Colors.grey.shade500),
-              ),
-            )
-            // Sinon → grille des événements (2 colonnes)
+                ? Center(child: Text('Aucun événement trouvé', style: TextStyle(color: Colors.grey.shade500)))
                 : RefreshIndicator(
-              // Pull to refresh = tirer vers le bas pour recharger
               onRefresh: _loadEvents,
               color: const Color(0xFF1A73E8),
-              // GridView.builder = comme ListView mais en grille
+              // grille 2 colonnes
               child: GridView.builder(
                 padding: const EdgeInsets.all(12),
-                // gridDelegate définit comment la grille est organisée
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2, // 2 colonnes
+                  crossAxisCount: 2,
                   crossAxisSpacing: 10,
                   mainAxisSpacing: 10,
-                  mainAxisExtent: 260, // hauteur fixe de chaque carte en pixels
+                  mainAxisExtent: 260, // hauteur fixe de chaque carte
                 ),
                 itemCount: _events.length,
-                // itemBuilder crée une carte pour chaque événement
                 itemBuilder: (_, i) => _EventCard(
                   event: _events[i],
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => EventDetailScreen(
-                        event: _events[i],
-                        user: widget.user,
-                      ),
+                      builder: (_) => EventDetailScreen(event: _events[i], user: widget.user),
                     ),
                   ),
                 ),
@@ -273,9 +202,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-
-// Widget pour afficher un événement dans la liste
-// StatelessWidget car la carte ne change jamais d'état
+// carte d'un event dans la grille
 class _EventCard extends StatelessWidget {
   final Event event;
   final VoidCallback onTap;
@@ -287,7 +214,6 @@ class _EventCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        // on retire le margin bottom qui causait le débordement
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
@@ -297,21 +223,22 @@ class _EventCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
 
-            // Image de l'événement — hauteur réduite pour la grille
+            // image de l'event
             ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
               child: event.imageUrl.isNotEmpty
                   ? Image.network(
                 event.imageUrl,
-                height: 100, // réduit pour rentrer dans la carte
+                height: 100,
                 width: double.infinity,
                 fit: BoxFit.cover,
+                // fond bleu si l'image plante
                 errorBuilder: (_, __, ___) => _placeholder(),
               )
                   : _placeholder(),
             ),
 
-            // Infos — Expanded pour prendre le reste de la place
+            // infos de l'event
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(8),
@@ -319,16 +246,14 @@ class _EventCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
 
-                    // Badge source + prix
+                    // badge source + prix
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: event.source == 'ticketmaster'
-                                ? const Color(0xFFE8F0FE)
-                                : const Color(0xFFFFF3E0),
+                            color: event.source == 'ticketmaster' ? const Color(0xFFE8F0FE) : const Color(0xFFFFF3E0),
                             borderRadius: BorderRadius.circular(5),
                           ),
                           child: Text(
@@ -336,9 +261,7 @@ class _EventCard extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
-                              color: event.source == 'ticketmaster'
-                                  ? const Color(0xFF1A73E8)
-                                  : const Color(0xFFE65100),
+                              color: event.source == 'ticketmaster' ? const Color(0xFF1A73E8) : const Color(0xFFE65100),
                             ),
                           ),
                         ),
@@ -355,7 +278,7 @@ class _EventCard extends StatelessWidget {
 
                     const SizedBox(height: 4),
 
-                    // Titre
+                    // titre
                     Text(
                       event.title,
                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
@@ -365,21 +288,19 @@ class _EventCard extends StatelessWidget {
 
                     const SizedBox(height: 4),
 
-                    // Date
+                    // date
                     Row(
                       children: [
                         Icon(Icons.calendar_today_rounded, size: 11, color: Colors.grey.shade400),
                         const SizedBox(width: 3),
-                        Text(
-                          '${event.date.day}/${event.date.month}/${event.date.year}',
-                          style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-                        ),
+                        Text('${event.date.day}/${event.date.month}/${event.date.year}',
+                            style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
                       ],
                     ),
 
                     const SizedBox(height: 2),
 
-                    // Lieu
+                    // lieu
                     Row(
                       children: [
                         Icon(Icons.location_on_rounded, size: 11, color: Colors.grey.shade400),
@@ -404,6 +325,7 @@ class _EventCard extends StatelessWidget {
     );
   }
 
+  // fond bleu si pas d'image
   Widget _placeholder() {
     return Container(
       height: 100,
@@ -414,9 +336,7 @@ class _EventCard extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
       ),
-      child: const Center(
-        child: Icon(Icons.event_rounded, size: 32, color: Colors.white),
-      ),
+      child: const Center(child: Icon(Icons.event_rounded, size: 32, color: Colors.white)),
     );
   }
 }

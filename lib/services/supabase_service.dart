@@ -314,4 +314,20 @@ class SupabaseService {
       return [];
     }
   }
+  // RÉCUPÉRER LES PARTICIPANTS D'UN ÉVÉNEMENT CRÉÉ PAR L'ORGANISATEUR
+  static Future<List<Map<String, dynamic>>> getEventParticipants({
+    required String eventTitle,
+  }) async {
+    try {
+      // on cherche toutes les réservations pour cet événement
+      final response = await _client
+          .from('reservations')
+          .select()
+          .eq('event_title', eventTitle);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      print('Erreur récupération participants: $e');
+      return [];
+    }
+  }
 }
