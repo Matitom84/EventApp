@@ -2,11 +2,8 @@ import 'package:flutter/material.dart';
 import '../../models/user.dart';
 import '../../services/supabase_service.dart';
 
-// page de création d'un événement
-// uniquement accessible aux organisateurs
-// StatefulWidget car on a des champs qui changent
 class CreateEventScreen extends StatefulWidget {
-  final AppUser user; // l'organisateur connecté
+  final AppUser user;
   const CreateEventScreen({super.key, required this.user});
 
   @override
@@ -15,340 +12,159 @@ class CreateEventScreen extends StatefulWidget {
 
 class _CreateEventScreenState extends State<CreateEventScreen> {
 
-  // controllers pour lire ce que l'organisateur tape
-  TextEditingController _titleController = TextEditingController();
-  TextEditingController _descriptionController = TextEditingController();
-  TextEditingController _addressController = TextEditingController();
-  TextEditingController _priceController = TextEditingController();
-  TextEditingController _maxPlacesController = TextEditingController();
+  // Les champs de texte
+  final TextEditingController _titreController = TextEditingController();
+  final TextEditingController _descriptionController = TextEditingController();
+  final TextEditingController _adresseController = TextEditingController();
+  final TextEditingController _prixController = TextEditingController();
+  final TextEditingController _placesController = TextEditingController();
 
-  // date choisie par l'organisateur
-  DateTime _selectedDate = DateTime.now();
+  DateTime _dateChoisie = DateTime.now(); // date de l'événement
+  bool _chargement = false; // true = spinner affiché
 
-  // true = on attend la réponse de supabase
-  bool _isLoading = false;
 
-  // pour valider le formulaire
-  final _formKey = GlobalKey<FormState>();
-
-  // ouvre le sélecteur de date
-  Future<void> _pickDate() async {
-    // showDatePicker affiche une popup pour choisir une date
-    DateTime? picked = await showDatePicker(
+  // Ouvre le sélecteur de date
+  Future<void> _choisirDate() async {
+    DateTime? dateSelectionnee = await showDatePicker(
       context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime.now(), // on ne peut pas choisir une date passée
+      initialDate: _dateChoisie,
+      firstDate: DateTime.now(),
       lastDate: DateTime(2027),
     );
 
-    // si l'utilisateur a choisi une date on la sauvegarde
-    if (picked != null) {
-      setState(() {
-        _selectedDate = picked;
-      });
+    if (dateSelectionnee != null) {
+      setState(() { _dateChoisie = dateSelectionnee; });
     }
   }
 
-  // sauvegarde l'événement dans supabase
-  Future<void> _createEvent() async {
 
-    // on vérifie que tous les champs sont remplis
-    if (!_formKey.currentState!.validate()) return;
+  // Sauvegarde l'événement dans Supabase
+  Future<void> _creerEvenement() async {
+    setState(() { _chargement = true; });
 
-    setState(() {
-      _isLoading = true;
-    });
-
-    // on convertit le prix en nombre décimal
-    // si le champ est vide on met 0.0 (gratuit)
-    double price = 0.0;
-    if (_priceController.text.isNotEmpty) {
-      price = double.parse(_priceController.text.trim());
+    // on convertit le prix en nombre décimal, 0.0 si vide
+    double prix = 0.0;
+    if (_prixController.text.isNotEmpty) {
+      prix = double.parse(_prixController.text.trim());
     }
 
-    // on convertit le nombre de places en entier
-    // si le champ est vide on met 0 (illimité)
-    int maxPlaces = 0;
-    if (_maxPlacesController.text.isNotEmpty) {
-      maxPlaces = int.parse(_maxPlacesController.text.trim());
+    // on convertit les places en entier, 0 si vide
+    int places = 0;
+    if (_placesController.text.isNotEmpty) {
+      places = int.parse(_placesController.text.trim());
     }
 
-    // on sauvegarde dans la table events de supabase
-    bool success = await SupabaseService.createEvent(
-      title: _titleController.text.trim(),
+    // on envoie tout à Supabase
+    bool succes = await SupabaseService.createEvent(
+      title: _titreController.text.trim(),
       description: _descriptionController.text.trim(),
-      address: _addressController.text.trim(),
-      date: _selectedDate.toIso8601String(),
-      price: price,
-      maxPlaces: maxPlaces,
+      address: _adresseController.text.trim(),
+      date: _dateChoisie.toIso8601String(),
+      price: prix,
+      maxPlaces: places,
       organizerPhone: widget.user.phone,
     );
 
-    setState(() {
-      _isLoading = false;
-    });
+    setState(() { _chargement = false; });
 
-    if (success) {
-      // événement créé, on affiche une confirmation
+    if (succes) {
+      // événement créé → message vert et retour à l'accueil
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Événement créé avec succès !'),
-          backgroundColor: Colors.green,
-        ),
+        const SnackBar(content: Text('Événement créé !'), backgroundColor: Colors.green),
       );
-      // on revient à la page d'accueil
       Navigator.pop(context);
     } else {
-      // erreur
+      // erreur → message rouge
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Erreur lors de la création'),
-          backgroundColor: Colors.red,
-        ),
+        const SnackBar(content: Text('Erreur lors de la création'), backgroundColor: Colors.red),
       );
     }
   }
 
-  // on libère la mémoire quand la page est fermée
-  @override
-  void dispose() {
-    _titleController.dispose();
-    _descriptionController.dispose();
-    _addressController.dispose();
-    _priceController.dispose();
-    _maxPlacesController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Créer un événement',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-      ),
+      appBar: AppBar(title: const Text('Créer un événement')),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
 
-              // section infos principales
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.grey.shade100),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+            // Champ titre
+            const Text('Titre'),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _titreController,
+              decoration: const InputDecoration(border: OutlineInputBorder()),
+            ),
 
-                    const Text(
-                      'Informations',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
+            const SizedBox(height: 16),
 
-                    const SizedBox(height: 16),
+            // Champ description
+            const Text('Description'),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _descriptionController,
+              maxLines: 3,
+              decoration: const InputDecoration(border: OutlineInputBorder()),
+            ),
 
-                    // champ titre
-                    TextFormField(
-                      controller: _titleController,
-                      decoration: const InputDecoration(
-                        labelText: 'Titre de l\'événement',
-                        prefixIcon: Icon(Icons.event_rounded),
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Ce champ est obligatoire';
-                        }
-                        return null;
-                      },
-                    ),
+            const SizedBox(height: 16),
 
-                    const SizedBox(height: 12),
+            // Champ adresse
+            const Text('Adresse'),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _adresseController,
+              decoration: const InputDecoration(border: OutlineInputBorder()),
+            ),
 
-                    // champ description
-                    TextFormField(
-                      controller: _descriptionController,
-                      maxLines: 3, // plusieurs lignes pour la description
-                      decoration: const InputDecoration(
-                        labelText: 'Description',
-                        prefixIcon: Icon(Icons.description_rounded),
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Ce champ est obligatoire';
-                        }
-                        return null;
-                      },
-                    ),
+            const SizedBox(height: 16),
 
-                    const SizedBox(height: 12),
+            // Sélecteur de date
+            const Text('Date'),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: _choisirDate,
+              child: Text('${_dateChoisie.day}/${_dateChoisie.month}/${_dateChoisie.year}'),
+            ),
 
-                    // champ adresse
-                    TextFormField(
-                      controller: _addressController,
-                      decoration: const InputDecoration(
-                        labelText: 'Adresse / Lieu',
-                        prefixIcon: Icon(Icons.location_on_rounded),
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Ce champ est obligatoire';
-                        }
-                        return null;
-                      },
-                    ),
-                  ],
-                ),
-              ),
+            const SizedBox(height: 16),
 
-              const SizedBox(height: 16),
+            // Champ prix
+            const Text('Prix (laisser vide = gratuit)'),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _prixController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(border: OutlineInputBorder()),
+            ),
 
-              // section date
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.grey.shade100),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+            const SizedBox(height: 16),
 
-                    const Text(
-                      'Date',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
+            // Champ nombre de places
+            const Text('Nombre de places (vide = illimité)'),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _placesController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(border: OutlineInputBorder()),
+            ),
 
-                    const SizedBox(height: 12),
+            const SizedBox(height: 24),
 
-                    // bouton pour ouvrir le sélecteur de date
-                    GestureDetector(
-                      onTap: _pickDate,
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.calendar_today_rounded,
-                                color: Color(0xFF1A73E8)),
-                            const SizedBox(width: 12),
-                            // affiche la date choisie
-                            Text(
-                              '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
-                              style: const TextStyle(fontSize: 15),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            // Bouton créer
+            ElevatedButton(
+              onPressed: _chargement ? null : _creerEvenement,
+              child: _chargement
+                  ? const CircularProgressIndicator()
+                  : const Text('Créer l\'événement'),
+            ),
 
-              const SizedBox(height: 16),
-
-              // section prix et places
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.grey.shade100),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-
-                    const Text(
-                      'Prix et places',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    // champ prix - optionnel, laisser vide = gratuit
-                    TextFormField(
-                      controller: _priceController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Prix (laisser vide = gratuit)',
-                        prefixIcon: Icon(Icons.euro_rounded),
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    // champ nombre de places - optionnel, laisser vide = illimité
-                    TextFormField(
-                      controller: _maxPlacesController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Nombre de places (vide = illimité)',
-                        prefixIcon: Icon(Icons.people_rounded),
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // bouton créer l'événement
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _createEvent,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1A73E8),
-                    foregroundColor: Colors.white,
-                  ),
-                  child: _isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text(
-                    'Créer l\'événement',
-                    style: TextStyle(fontSize: 16),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 32),
-            ],
-          ),
+            const SizedBox(height: 32),
+          ],
         ),
       ),
     );
