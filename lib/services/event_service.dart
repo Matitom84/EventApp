@@ -62,13 +62,7 @@ class EventService {
 
 
   static Future<bool> _checkInternet() async {
-    // Sur le web on considère toujours qu'il y a internet
-    // car connectivity_plus ne fonctionne pas bien sur web
-    if (kIsWeb) return true;
-
-    // Sur mobile on vérifie vraiment la connexion
-    final connectivity = await Connectivity().checkConnectivity();
-    return connectivity == ConnectivityResult.wifi ||
-        connectivity == ConnectivityResult.mobile;
+    // on force toujours true pour que ca marche partout
+    return true;
   }
 }

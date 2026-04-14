@@ -7,54 +7,8 @@ class SupabaseService {
 
   static final _client = Supabase.instance.client;
 
-  // Formate le numéro de téléphone
-  // Ex: "0685603968" → "33685603968"
-  static String _formatPhone(String phone) {
-    phone = phone.replaceAll(' ', '').replaceAll('-', '');
-    if (phone.startsWith('0')) {
-      return '33${phone.substring(1)}';
-    }
-    if (phone.startsWith('+33')) {
-      return phone.substring(1);
-    }
-    return phone;
-  }
 
-
-  // VÉRIFIE SI LE NUMÉRO EXISTE DÉJÀ DANS LA TABLE PROFILES
-  // Retourne true si le numéro est déjà utilisé
-  static Future<bool> phoneExists(String phone) async {
-    try {
-      final formattedPhone = _formatPhone(phone);
-      final response = await _client
-          .from('profiles')
-          .select()
-          .eq('phone', formattedPhone)
-          .maybeSingle();
-      // maybeSingle() retourne null si aucun résultat
-      // Si on trouve quelque chose → le numéro existe déjà
-      return response != null;
-    } catch (e) {
-      print('Erreur vérification numéro: $e');
-      return false;
-    }
-  }
-
-
-  // ENVOI DU CODE SMS
-  static Future<bool> sendPhoneOtp({required String phone}) async {
-    try {
-      final formattedPhone = _formatPhone(phone);
-      await _client.auth.signInWithOtp(phone: '+$formattedPhone');
-      return true;
-    } catch (e) {
-      print('Erreur envoi OTP: $e');
-      return false;
-    }
-  }
-
-
-  // INSCRIPTION — crée le compte ET sauvegarde dans profiles
+  // INSCRIPTION
   static Future<AppUser?> verifyPhoneOtp({
     required String phone,
     required String otp,
@@ -62,99 +16,77 @@ class SupabaseService {
     required String role,
   }) async {
     try {
-      final formattedPhone = _formatPhone(phone);
-
-      // On vérifie si le numéro existe déjà
-      final exists = await phoneExists(phone);
-      if (exists) {
-        // Le numéro est déjà utilisé — on retourne null
-        print('Numéro déjà utilisé');
-        return null;
-      }
-
-      final response = await _client.auth.verifyOTP(
-        phone: '+$formattedPhone',
+      final reponse = await _client.auth.verifyOTP(
+        phone: phone,
         token: otp,
         type: OtpType.sms,
       );
 
-      if (response.user == null) return null;
+      if (reponse.user == null) return null;
 
-      // On met à jour les metadata Supabase
       await _client.auth.updateUser(
-        UserAttributes(
-          data: {
-            'name': name,
-            'phone': formattedPhone,
-            'role': role,
-          },
-        ),
+        UserAttributes(data: {'name': name, 'phone': phone, 'role': role}),
       );
 
-      // On sauvegarde dans la table profiles pour éviter les doublons
       await _client.from('profiles').insert({
-        'phone': formattedPhone,
+        'phone': phone,
         'name': name,
         'role': role,
       });
 
-      final user = AppUser(
-        id: response.user!.id,
-        email: response.user!.email ?? '',
+      final utilisateur = AppUser(
+        id: reponse.user!.id,
+        email: reponse.user!.email ?? '',
         name: name,
         role: role,
-        phone: formattedPhone,
+        phone: phone,
         createdAt: DateTime.now(),
       );
 
-      await DatabaseService.saveUser(user);
-      return user;
+      await DatabaseService.saveUser(utilisateur);
+      return utilisateur;
 
-    } catch (e) {
-      print('Erreur inscription: $e');
+    } catch (erreur) {
+      print('Erreur inscription: $erreur');
       return null;
     }
   }
 
 
-  // CONNEXION — récupère le profil depuis la table profiles
+  // CONNEXION
   static Future<AppUser?> signInWithPhone({
     required String phone,
     required String otp,
   }) async {
     try {
-      final formattedPhone = _formatPhone(phone);
-
-      final response = await _client.auth.verifyOTP(
-        phone: '+$formattedPhone',
+      final reponse = await _client.auth.verifyOTP(
+        phone: phone,
         token: otp,
         type: OtpType.sms,
       );
 
-      if (response.user == null) return null;
+      if (reponse.user == null) return null;
 
-      // On récupère le profil depuis la table profiles
-      // C'est ici qu'on retrouve le vrai nom et rôle de l'utilisateur
-      final profile = await _client
+      final profil = await _client
           .from('profiles')
           .select()
-          .eq('phone', formattedPhone)
+          .eq('phone', phone)
           .maybeSingle();
 
-      final user = AppUser(
-        id: response.user!.id,
-        email: response.user!.email ?? '',
-        name: profile?['name'] ?? 'Utilisateur',
-        role: profile?['role'] ?? 'client',
-        phone: formattedPhone,
-        createdAt: DateTime.parse(response.user!.createdAt),
+      final utilisateur = AppUser(
+        id: reponse.user!.id,
+        email: reponse.user!.email ?? '',
+        name: profil?['name'] ?? 'Utilisateur',
+        role: profil?['role'] ?? 'client',
+        phone: phone,
+        createdAt: DateTime.parse(reponse.user!.createdAt),
       );
 
-      await DatabaseService.saveUser(user);
-      return user;
+      await DatabaseService.saveUser(utilisateur);
+      return utilisateur;
 
-    } catch (e) {
-      print('Erreur connexion: $e');
+    } catch (erreur) {
+      print('Erreur connexion: $erreur');
       return null;
     }
   }
@@ -165,39 +97,40 @@ class SupabaseService {
     try {
       await _client.auth.signOut();
       await DatabaseService.deleteUser();
-    } catch (e) {
-      print('Erreur déconnexion: $e');
+    } catch (erreur) {
+      print('Erreur déconnexion: $erreur');
     }
   }
 
 
-  // VÉRIFIER SI QUELQU'UN EST CONNECTÉ
+  // Vérifie si quelqu'un est connecté
   static Future<bool> isLoggedIn() async {
     final session = _client.auth.currentSession;
     if (session != null) return true;
-    final localUser = await DatabaseService.getUser();
-    return localUser != null;
+    final utilisateurLocal = await DatabaseService.getUser();
+    return utilisateurLocal != null;
   }
 
 
-  // RÉCUPÉRER L'UTILISATEUR CONNECTÉ
+  // Récupère l'utilisateur connecté
   static Future<AppUser?> getCurrentUser() async {
-    final supabaseUser = _client.auth.currentUser;
-    if (supabaseUser != null) {
-      final metadata = supabaseUser.userMetadata ?? {};
+    final utilisateurSupabase = _client.auth.currentUser;
+    if (utilisateurSupabase != null) {
+      final metadata = utilisateurSupabase.userMetadata ?? {};
       return AppUser(
-        id: supabaseUser.id,
-        email: supabaseUser.email ?? '',
+        id: utilisateurSupabase.id,
+        email: utilisateurSupabase.email ?? '',
         name: metadata['name'] ?? 'Utilisateur',
         role: metadata['role'] ?? 'client',
         phone: metadata['phone'] ?? '',
-        createdAt: DateTime.parse(supabaseUser.createdAt),
+        createdAt: DateTime.parse(utilisateurSupabase.createdAt),
       );
     }
     return await DatabaseService.getUser();
   }
-  // SAUVEGARDER UNE RÉSERVATION DANS SUPABASE
-// Appelée quand l'utilisateur confirme sa réservation
+
+
+  // Sauvegarde une réservation
   static Future<bool> saveReservation({
     required String userPhone,
     required String eventId,
@@ -213,44 +146,46 @@ class SupabaseService {
         'reserved_at': DateTime.now().toIso8601String(),
       });
       return true;
-    } catch (e) {
-      print('Erreur sauvegarde réservation: $e');
+    } catch (erreur) {
+      print('Erreur sauvegarde réservation: $erreur');
       return false;
     }
   }
 
 
-// RÉCUPÉRER LES RÉSERVATIONS D'UN UTILISATEUR
+  // Récupère les réservations d'un utilisateur
   static Future<List<Map<String, dynamic>>> getReservations({
     required String userPhone,
   }) async {
     try {
-      final response = await _client
+      final reponse = await _client
           .from('reservations')
           .select()
           .eq('user_phone', userPhone)
           .order('reserved_at', ascending: false);
-      return List<Map<String, dynamic>>.from(response);
-    } catch (e) {
-      print('Erreur récupération réservations: $e');
+      return List<Map<String, dynamic>>.from(reponse);
+    } catch (erreur) {
+      print('Erreur récupération réservations: $erreur');
       return [];
     }
   }
 
 
-// COMPTER LES RÉSERVATIONS D'UN UTILISATEUR
+  // Compte les réservations d'un utilisateur
   static Future<int> countReservations({required String userPhone}) async {
     try {
-      final response = await _client
+      final reponse = await _client
           .from('reservations')
           .select()
           .eq('user_phone', userPhone);
-      return (response as List).length;
-    } catch (e) {
+      return (reponse as List).length;
+    } catch (erreur) {
       return 0;
     }
   }
-  // CRÉER UN ÉVÉNEMENT DANS SUPABASE
+
+
+  // Crée un événement
   static Future<bool> createEvent({
     required String title,
     required String description,
@@ -261,7 +196,6 @@ class SupabaseService {
     required String organizerPhone,
   }) async {
     try {
-      // on insère l'événement dans la table events
       await _client.from('events').insert({
         'title': title,
         'description': description,
@@ -272,61 +206,58 @@ class SupabaseService {
         'organizer_phone': organizerPhone,
       });
       return true;
-    } catch (e) {
-      print('Erreur création événement: $e');
+    } catch (erreur) {
+      print('Erreur création événement: $erreur');
       return false;
     }
   }
-  // RÉCUPÉRER LES ÉVÉNEMENTS CRÉÉS PAR LES ORGANISATEURS
-// on les convertit en objets Event pour les afficher comme les autres
+
+
+  // Récupère les événements créés par les organisateurs
   static Future<List<Event>> getCreatedEvents() async {
     try {
-      // on récupère tous les événements depuis la table supabase
-      final response = await _client
+      final reponse = await _client
           .from('events')
           .select()
           .order('date', ascending: true);
 
-      List<Event> events = [];
-
-      // on parcourt chaque ligne et on crée un objet Event
-      for (var row in response) {
-        Event event = Event(
-          id: 'sb_${row['id']}',
-          title: row['title'] ?? '',
-          description: row['description'] ?? '',
-          address: row['address'] ?? '',
+      final List<Event> evenements = [];
+      for (var ligne in reponse) {
+        evenements.add(Event(
+          id: 'sb_${ligne['id']}',
+          title: ligne['title'] ?? '',
+          description: ligne['description'] ?? '',
+          address: ligne['address'] ?? '',
           imageUrl: '',
-          date: DateTime.parse(row['date']),
-          maxPlaces: row['max_places'] ?? 0,
-          organizer: row['organizer_phone'] ?? '',
+          date: DateTime.parse(ligne['date']),
+          maxPlaces: ligne['max_places'] ?? 0,
+          organizer: ligne['organizer_phone'] ?? '',
           source: 'supabase',
           url: '',
-          price: (row['price'] ?? 0.0).toDouble(),
-        );
-        events.add(event);
+          price: (ligne['price'] ?? 0.0).toDouble(),
+        ));
       }
+      return evenements;
 
-      return events;
-
-    } catch (e) {
-      print('Erreur récupération événements supabase: $e');
+    } catch (erreur) {
+      print('Erreur récupération événements: $erreur');
       return [];
     }
   }
-  // RÉCUPÉRER LES PARTICIPANTS D'UN ÉVÉNEMENT CRÉÉ PAR L'ORGANISATEUR
+
+
+  // Récupère les participants d'un événement
   static Future<List<Map<String, dynamic>>> getEventParticipants({
     required String eventTitle,
   }) async {
     try {
-      // on cherche toutes les réservations pour cet événement
-      final response = await _client
+      final reponse = await _client
           .from('reservations')
           .select()
           .eq('event_title', eventTitle);
-      return List<Map<String, dynamic>>.from(response);
-    } catch (e) {
-      print('Erreur récupération participants: $e');
+      return List<Map<String, dynamic>>.from(reponse);
+    } catch (erreur) {
+      print('Erreur récupération participants: $erreur');
       return [];
     }
   }

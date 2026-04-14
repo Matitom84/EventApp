@@ -1,22 +1,23 @@
-// un Event c'est le modele d'un evenement dans l'app
-// chaque concert, expo ou festival sera un objet Event
+// Un Event = un événement (concert, festival, etc.)
 class Event {
 
-  // les infos d'un evenement
-  // final = ca ne change pas une fois cree
-  final String id;          // identifiant unique ex: "tm_123"
-  final String title;       // nom de l'evenement
-  final String description; // description
-  final String address;     // adresse du lieu
-  final String imageUrl;    // lien vers la photo
-  final DateTime date;      // date et heure
-  final int maxPlaces;      // nombre de places max (0 = illimite)
-  final String organizer;   // nom de l'organisateur
-  final String source;      // "ticketmaster" ou "eventbrite"
-  final String url;         // lien vers le site officiel
-  final double price;       // prix en euros (0.0 = gratuit)
+  // ====== VARIABLES ======
+  // "final" = la valeur ne change plus après création
 
-  // constructeur - obligatoire de tout remplir
+  final String id;          // identifiant unique
+  final String title;       // nom de l'événement
+  final String description; // description
+  final String address;     // lieu
+  final String imageUrl;    // image
+  final DateTime date;      // date + heure
+  final int maxPlaces;      // nombre de places (0 = illimité)
+  final String organizer;   // organisateur
+  final String source;      // d'où ça vient (API)
+  final String url;         // lien site
+  final double price;       // prix
+
+  // ====== CONSTRUCTEUR ======
+  // Obligé de donner toutes les infos quand on crée un Event
   Event({
     required this.id,
     required this.title,
@@ -31,8 +32,8 @@ class Event {
     required this.price,
   });
 
-  // convertit l'event en dictionnaire pour le sauvegarder dans SQLite
-  // SQLite ne comprend pas les objets Dart donc on transforme en Map
+  // ====== CONVERTIR EN MAP ======
+  // Sert à enregistrer dans la base de données
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -40,7 +41,10 @@ class Event {
       'description': description,
       'address': address,
       'imageUrl': imageUrl,
-      'date': date.toIso8601String(), // on convertit la date en texte
+
+      // Date transformée en texte (SQLite ne comprend pas DateTime)
+      'date': date.toIso8601String(),
+
       'maxPlaces': maxPlaces,
       'organizer': organizer,
       'source': source,
@@ -49,9 +53,8 @@ class Event {
     };
   }
 
-  // fait l'inverse de toMap()
-  // prend un dictionnaire et cree un objet Event
-  // utilise quand on relit les events depuis SQLite
+  // ====== CREER UN EVENT A PARTIR D'UNE MAP ======
+  // Sert quand on récupère les données depuis la base
   factory Event.fromMap(Map<String, dynamic> map) {
     return Event(
       id: map['id'],
@@ -59,7 +62,10 @@ class Event {
       description: map['description'],
       address: map['address'],
       imageUrl: map['imageUrl'],
-      date: DateTime.parse(map['date']), // on reconvertit le texte en date
+
+      // On reconvertit le texte en DateTime
+      date: DateTime.parse(map['date']),
+
       maxPlaces: map['maxPlaces'],
       organizer: map['organizer'],
       source: map['source'],

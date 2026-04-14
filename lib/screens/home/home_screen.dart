@@ -34,7 +34,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     // on recupere les events, keyword = ce que l'user a tape
     final events = await EventService.getEvents(
-      city: 'Paris',
+      city: _searchController.text.isNotEmpty ? _searchController.text.trim() : 'Paris',
       keyword: _searchController.text.trim(),
     );
 
