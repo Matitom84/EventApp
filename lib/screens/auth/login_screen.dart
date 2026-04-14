@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/supabase_service.dart';
 import '../../models/user.dart';
 import '../home/home_screen.dart';
@@ -14,6 +13,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
 
+  // Les champs de texte
   final TextEditingController _telephoneController = TextEditingController();
   final TextEditingController _codeSmsController = TextEditingController();
 
@@ -21,44 +21,34 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _smsenvoye = false;
 
 
-  // ETAPE 1 : envoie le code SMS
+  // ETAPE 1 : passe directement à l'étape 2 (mode test)
   Future<void> _envoyerSms() async {
-    setState(() { _chargement = true; });
-
-    try {
-      await Supabase.instance.client.auth.signInWithOtp(
-        phone: _telephoneController.text.trim(),
-      );
-      setState(() { _smsenvoye = true; });
-    } catch (erreur) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Erreur, vérifiez votre numéro'), backgroundColor: Colors.red),
-      );
-    }
-
-    setState(() { _chargement = false; });
+    setState(() { _smsenvoye = true; });
   }
 
 
-  // ETAPE 2 : vérifie le code et connecte l'utilisateur
+  // ETAPE 2 : vérifie le code Supabase et connecte l'utilisateur
   Future<void> _seConnecter() async {
-    setState(() { _chargement = true; });
+    setState(() { _chargement = true; }); // active le spinner
 
+    // on envoie le numéro et le code à Supabase pour vérification
     AppUser? utilisateur = await SupabaseService.signInWithPhone(
       phone: _telephoneController.text.trim(),
       otp: _codeSmsController.text.trim(),
     );
 
-    setState(() { _chargement = false; });
+    setState(() { _chargement = false; }); // désactive le spinner
 
     if (utilisateur != null) {
+      // connexion réussie → on va sur l'accueil
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => HomeScreen(user: utilisateur)),
       );
     } else {
+      // code incorrect → message rouge en bas
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Code incorrect ou expiré'), backgroundColor: Colors.red),
+        const SnackBar(content: Text('Code incorrect'), backgroundColor: Colors.red),
       );
     }
   }
@@ -76,17 +66,20 @@ class _LoginScreenState extends State<LoginScreen> {
 
             const SizedBox(height: 60),
 
+            // titre de l'app
             const Center(
               child: Text('EventApp', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
             ),
 
             const SizedBox(height: 40),
 
-            // ── ETAPE 1 ──
+            // ── ETAPE 1 : saisie du numéro ──
             if (!_smsenvoye) ...[
 
               const Text('Numéro de téléphone'),
               const SizedBox(height: 8),
+
+              // champ pour taper le numéro
               TextField(
                 controller: _telephoneController,
                 keyboardType: TextInputType.phone,
@@ -98,77 +91,58 @@ class _LoginScreenState extends State<LoginScreen> {
 
               const SizedBox(height: 24),
 
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: _chargement ? null : _envoyerSms,
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1A73E8), foregroundColor: Colors.white),
-                  child: _chargement
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text('Recevoir le code SMS'),
-                ),
+              // bouton pour passer à l'étape 2
+              ElevatedButton(
+                onPressed: _envoyerSms,
+                child: const Text('Continuer'),
               ),
 
-              const SizedBox(height: 16),
-
-              Center(
-                child: TextButton(
-                  onPressed: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterScreen()));
-                  },
-                  child: const Text('Pas de compte ? S\'inscrire'),
-                ),
+              // lien vers l'inscription
+              TextButton(
+                onPressed: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterScreen()));
+                },
+                child: const Text('Pas de compte ? S\'inscrire'),
               ),
             ],
 
-            // ── ETAPE 2 ──
+            // ── ETAPE 2 : saisie du code ──
             if (_smsenvoye) ...[
-
-              Text('Code envoyé au ${_telephoneController.text}'),
-              const SizedBox(height: 16),
 
               const Text('Code à 6 chiffres'),
               const SizedBox(height: 8),
+
+              // champ pour taper le code Supabase
               TextField(
                 controller: _codeSmsController,
-                keyboardType: TextInputType.number,
                 maxLength: 6,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 10),
                 decoration: const InputDecoration(
                   hintText: '------',
-                  counterText: '',
+                  counterText: '', // cache le compteur 0/6
                   border: OutlineInputBorder(),
                 ),
               ),
 
               const SizedBox(height: 24),
 
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: _chargement ? null : _seConnecter,
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1A73E8), foregroundColor: Colors.white),
-                  child: _chargement
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text('Se connecter'),
-                ),
+              // bouton pour se connecter
+              ElevatedButton(
+                onPressed: _chargement ? null : _seConnecter,
+                child: _chargement
+                    ? const CircularProgressIndicator() // spinner si chargement
+                    : const Text('Se connecter'),
               ),
 
-              const SizedBox(height: 12),
-
-              Center(
-                child: TextButton(
-                  onPressed: () {
-                    setState(() {
-                      _smsenvoye = false;
-                      _codeSmsController.clear();
-                    });
-                  },
-                  child: const Text('Renvoyer le code'),
-                ),
+              // bouton pour revenir à l'étape 1
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    _smsenvoye = false;
+                    _codeSmsController.clear(); // vide le champ code
+                  });
+                },
+                child: const Text('Retour'),
               ),
             ],
 
